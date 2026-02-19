@@ -2,27 +2,11 @@ import mujoco
 import mujoco.viewer
 import time
 
-def load_robot_description(model_path: str) -> mujoco.MjModel:
-    """Load a robot description in MuJoCo.
-
-    Args:
-        model_path: Path to the MJCF XML file describing the robot.
-
-    Returns:
-        Robot model for MuJoCo.
-    """
-    try:
-        return mujoco.MjModel.from_xml_path(model_path)
-    except ValueError:
-        print(f"{model_path} not found. Loading default robot model.")
-        return None
-
 PACKAGE_PATH: str = "./robotstudio_so101/"
 
-MJCF_FILE: str = "so101.xml" #can be so101.xml, scene.xml or scene_box.xml
+MJCF_FILE: str = "scene.xml" #can be so101.xml, scene.xml or scene_box.xml
 
-
-model = load_robot_description(PACKAGE_PATH+MJCF_FILE)
+model = mujoco.MjModel.from_xml_path(PACKAGE_PATH+MJCF_FILE)
 data = mujoco.MjData(model)
 
 # 2. Launch the passive viewer
