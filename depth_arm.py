@@ -29,11 +29,11 @@ last_render_time = time.time()
 
 # --- NEW: Define Camera Offsets in Degrees ---
 # Local position offset [X, Y, Z] in meters relative to the mount
-local_pos_offset = np.array([0.05, 0.0, 0.05]) 
+local_pos_offset = np.array([0.05, 0.0, 0.05])
 
 # Local rotation offset in degrees [Roll (X), Pitch (Y), Yaw (Z)]
 # Tweak these numbers to point the camera exactly where you want
-local_euler_degrees = np.array([0.0, 180.0, 90.0]) 
+local_euler_degrees = np.array([0.0, 180.0, 90.0])
 
 # 1. Convert those degrees into radians
 local_euler_radians = np.radians(local_euler_degrees)
@@ -45,40 +45,41 @@ local_quat_offset = np.zeros(4)
 mujoco.mju_euler2Quat(local_quat_offset, local_euler_radians, "xyz")
 # ---------------------------------------------
 
+
+# Track when the simulation started
+sim_start_time = time.time()
+
 # Launch the passive viewer
 with mujoco.viewer.launch_passive(model, data) as viewer:
 
     while viewer.is_running():
-        step_start = time.time()
 
-        # 1. Step the physics forward
-        mujoco.mj_step(model, data)
+        # 1. Calculate how much real-world time has actually passed
+        real_elapsed_time = time.time() - sim_start_time
 
-        # --- NEW: Offset Snapping Logic ---
-        # Get the mount's 3x3 rotation matrix
-        mount_mat = data.xmat[mount_id].reshape(3, 3)
+        # 2. Rapidly step the physics forward until it catches up to real-world time
+        while data.time < real_elapsed_time:
+            mujoco.mj_step(model, data)
 
-        # Multiply the local offset by the rotation matrix to get the global offset vector
-        global_offset = mount_mat @ local_pos_offset
+            # --- Dynamic Snapping Logic ---
+            # (Move your offset and snapping math INSIDE this physics loop
+            # so the camera perfectly follows the arm during the fast-forward)
+            mount_mat = data.xmat[mount_id].reshape(3, 3)
+            global_offset = mount_mat @ local_pos_offset
+            model.body_pos[cam_id] = data.xpos[mount_id] + global_offset
+            mujoco.mju_mulQuat(
+                model.body_quat[cam_id], data.xquat[mount_id], local_quat_offset)
+            mujoco.mj_kinematics(model, data)
+            # ------------------------------
 
-        # Apply the offset to the mount's position
-        model.body_pos[cam_id] = data.xpos[mount_id] + global_offset
-
-        # Multiply the mount's quaternion by our offset quaternion to rotate the camera
-        mujoco.mju_mulQuat(
-            model.body_quat[cam_id], data.xquat[mount_id], local_quat_offset)
-
-        # Update the kinematic tree so MuJoCo knows the camera moved before rendering
-        mujoco.mj_kinematics(model, data)
-        # -----------------------------------
-
+        # 3. Sync the 3D viewer once the physics is fully up to date
         viewer.sync()
 
-        # Render RGB and Depth at specified FPS
+        # 4. Render RGB and Depth at specified FPS
         current_time = time.time()
         if current_time - last_render_time >= render_interval:
 
-            # Update and Render RGB
+            # (Keep all your existing renderer and OpenCV code here unchanged!)
             renderer.update_scene(data, camera=camera_name)
             renderer.disable_depth_rendering()
             rgb_image = renderer.render()
@@ -112,10 +113,5 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
                 break
 
             last_render_time = current_time
-
-        # Rough timing to keep it real-time
-        time_until_next_step = model.opt.timestep - (time.time() - step_start)
-        if time_until_next_step > 0:
-            time.sleep(time_until_next_step)
 
 cv2.destroyAllWindows()
