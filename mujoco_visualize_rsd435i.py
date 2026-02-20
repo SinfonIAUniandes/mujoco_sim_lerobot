@@ -4,7 +4,7 @@ import time
 import numpy as np
 import open3d as o3d
 
-PACKAGE_PATH: str = "./realsense_d435i/"
+PACKAGE_PATH: str = "./robotstudio_so101/realsense_d435i/"
 MJCF_FILE: str = "scene.xml" 
 
 model = mujoco.MjModel.from_xml_path(PACKAGE_PATH+MJCF_FILE)
