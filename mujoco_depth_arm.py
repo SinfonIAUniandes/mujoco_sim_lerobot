@@ -29,11 +29,11 @@ last_render_time = time.time()
 
 # --- NEW: Define Camera Offsets in Degrees ---
 # Local position offset [X, Y, Z] in meters relative to the mount
-local_pos_offset = np.array([0.05, 0.0, 0.05])
+local_pos_offset = np.array([0.0, 0.04, -0.07])
 
 # Local rotation offset in degrees [Roll (X), Pitch (Y), Yaw (Z)]
 # Tweak these numbers to point the camera exactly where you want
-local_euler_degrees = np.array([0.0, 180.0, 90.0])
+local_euler_degrees = np.array([-45.0, 180.0, 0.0])
 
 # 1. Convert those degrees into radians
 local_euler_radians = np.radians(local_euler_degrees)
