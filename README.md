@@ -1,4 +1,5 @@
 # Simulación de brazos LeRobot con MuJoCo y PyRoki
+![arm_gif](https://github.com/user-attachments/assets/aaa8351c-93e6-4dfd-b276-cd3e3cd380da)
 
 Este repositorio contiene ejemplos y scripts para visualizar, simular y controlar brazos robóticos de LeRobot (como el `so_arm101`) utilizando **MuJoCo** para la simulación física y **PyRoki** para la resolución de cinemática inversa (IK) y planificación de movimiento.
 
