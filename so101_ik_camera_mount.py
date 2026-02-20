@@ -11,37 +11,16 @@ MJCF_FILE: str = "so101_camera_mount.xml" #can be so101.xml, scene.xml or scene_
 model = mujoco.MjModel.from_xml_path(PACKAGE_PATH+MJCF_FILE)
 data = mujoco.MjData(model)
 
-# --- INICIO DEL CAMBIO ---
-# Teletransportar la cámara a una posición fija al inicio.
-# Nota: Necesitamos saber el nombre del body de la cámara.
-# Si la cámara tiene un 'freejoint' (está libre), se modifica data.qpos.
-# Si está fija a un sitio por defecto en el XML, podemos intentar mover su posición base en el modelo
-# ANTES de que comience el bucle de física, si no tiene joints.
+# Get the internal IDs for the camera and the mount
+cam_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "d435i")
+mount_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "air_camera_mount")
 
-# Asumiendo que el cuerpo se llama 'd435i' (nombre común en estos includes).
-# Ajusta el nombre "d435i" si tu XML usa otro nombre para el cuerpo de la cámara.
-camera_body_name = "d435i" 
+# Snap the camera's position and orientation to match the mount perfectly
+model.body_pos[cam_id] = model.body_pos[mount_id]
+model.body_quat[cam_id] = model.body_quat[mount_id]
 
-# Nuevas coordenadas (x, y, z)
-new_position = [0.5, 0.2, 0.4] 
-
-# Rotar la cámara para que mire hacia abajo (opcional, dependiendo de tu setup)
-target_quat = np.zeros(4)
-mujoco.mju_euler2Quat(target_quat, np.radians([180,-20,90]), "xyz")
-
-try:
-    body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, camera_body_name)
-    if body_id != -1:
-        # Si es un cuerpo estático (sin joints) o queremos mover su posición base de montaje:
-        model.body_pos[body_id] = new_position
-        # Opcional: Cambiar orientación (quaternion w,x,y,z o euler) si es necesario
-        model.body_quat[body_id] = target_quat
-        print(f"Cámara movida a: {new_position}")
-        print(f"Cámara orientada con quaternion: {target_quat}")
-    else:
-        print(f"No se encontró el cuerpo: {camera_body_name}")
-except Exception as e:
-    print(f"Error al mover la cámara: {e}")
+data = mujoco.MjData(model)
+mujoco.mj_forward(model, data) 
 
 # Importante: llamar a mj_forward para propagar el cambio de posición a la cinemática
 mujoco.mj_forward(model, data)
