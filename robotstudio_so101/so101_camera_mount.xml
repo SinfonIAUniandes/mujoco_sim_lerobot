@@ -28,7 +28,7 @@
         friction="1 .03 .003" rgba="0 1 0 1" contype="2" conaffinity="1" solref="0.01 1" />
     </body>
 
-    <body name="air_camera_mount" pos="0.4 0 0.05" euler="1.5708 -1.5708 0">
+    <body name="air_camera_mount" pos="0.2 -0.4 0.5" euler="0.785398 3.14159 0">
     </body>
   </worldbody>
 </mujoco>
