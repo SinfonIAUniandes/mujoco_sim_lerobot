@@ -109,8 +109,6 @@ def main():
 
             # --- A. HIGH-LEVEL CONTROL (Viser -> IK -> MuJoCo Ctrl) ---
             # Solve IK based on the web interface target
-            print("\nSolving IK for target position:", ik_target.position,
-                  "and orientation (wxyz):", ik_target.wxyz)
             q_sol = pks.solve_ik(
                 robot=robot,
                 target_link_name=target_link_name,
