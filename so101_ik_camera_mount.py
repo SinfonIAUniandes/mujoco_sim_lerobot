@@ -39,16 +39,26 @@ render_interval = 1.0 / render_fps
 last_render_time = time.time()
 # --- FIN SETUP RENDERER ---
 
+# Track when the simulation started (Add this right before the viewer launch)
+sim_start_time = time.time()
+
 # 2. Launch the passive viewer
 with mujoco.viewer.launch_passive(model, data) as viewer:
-    # Close the viewer to stop the script
+    
     while viewer.is_running():
-        step_start = time.time()
+        # 1. Calculate how much real-world time has actually passed
+        real_elapsed_time = time.time() - sim_start_time
 
-        # Step the physics
-        mujoco.mj_step(model, data)
+        # 2. Rapidly step the physics forward until it catches up to real-world time
+        while data.time < real_elapsed_time:
+            mujoco.mj_step(model, data)
+            
+            # Keep your camera snapping math INSIDE the physics loop
+            model.body_pos[cam_id] = model.body_pos[mount_id]
+            model.body_quat[cam_id] = model.body_quat[mount_id]
+            mujoco.mj_forward(model, data) 
 
-        # Sync the viewer with the new physics state
+        # 3. Sync the viewer ONLY once physics is up to date
         viewer.sync()
 
         # --- CODIGO DE VISUALIZACION START ---
@@ -62,42 +72,30 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             
             # 2. Update and Render Depth
             renderer.enable_depth_rendering()
-            # Forzar actualización de escena para aplicar flags de profundidad
             renderer.update_scene(data, camera=camera_name) 
             depth_image = renderer.render() 
             
-            # 3. Procesamiento de Profundidad (Normalización robusta)
-            max_depth = 3.0 # Rango máximo en metros para visualización
+            # 3. Procesamiento de Profundidad 
+            max_depth = 3.0 
             depth_visual = depth_image.copy()
             
-            # Arreglar fondo: MuJoCo pone espacios vacíos como 0.0, inf o nan
             bg_mask = (depth_visual == 0.0) | np.isinf(depth_visual) | np.isnan(depth_visual)
             depth_visual[bg_mask] = max_depth
             
-            # Recortar y normalizar
             depth_normalized = np.clip(depth_visual, 0, max_depth) / max_depth
             depth_8bit = (depth_normalized * 255).astype(np.uint8)
-            
-            # Invertir mapa: Cerca = brillante, Lejos = oscuro
             depth_8bit = 255 - depth_8bit
             
-            # Aplicar mapa de color (JET)
             depth_colormap = cv2.applyColorMap(depth_8bit, cv2.COLORMAP_JET)
 
             # 4. Mostrar imágenes
             cv2.imshow("RGB Camera", bgr_image)
             cv2.imshow("Depth Camera", depth_colormap)
             
-            # Salir con 'q'
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
                 
             last_render_time = current_time
         # --- CODIGO DE VISUALIZACION END ---
-
-        # Rough timing to keep it real-time
-        time_until_next_step = model.opt.timestep - (time.time() - step_start)
-        if time_until_next_step > 0:
-            time.sleep(time_until_next_step)
 
 cv2.destroyAllWindows()
