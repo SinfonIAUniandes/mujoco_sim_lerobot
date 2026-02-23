@@ -4,3 +4,4 @@ git+https://github.com/chungmin99/pyroki.git
 numpy
 open3d
 opencv-python
+rerun-sdk
