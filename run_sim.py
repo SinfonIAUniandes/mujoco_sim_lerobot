@@ -25,10 +25,10 @@ if __name__ == "__main__":
         enable_depth=True,
         
         # Visualizers
-        show_cv2=True,      # Turn off OpenCV since we use Rerun
+        show_cv2=False,      # Turn off OpenCV since we use Rerun
         
         # Rerun toggles
-        enable_rerun=False,    # Enable or disable for external visualization
+        enable_rerun=True,    # Enable or disable for external visualization
         rerun_log_meshes=True,  # Show the 3D robot model in Rerun
         rerun_log_tf=True,      # Show the coordinate frames and skeletal arrows
         rerun_depth_mode="pointcloud", # Choose: "none", "depth", or "pointcloud"
