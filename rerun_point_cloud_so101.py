@@ -50,6 +50,90 @@ rr.log(
     static=True
 )
 
+# =========================================================================
+# --- INICIO DE CARGA ESTÁTICA DE MALLAS 3D (VISUALES) ---
+# =========================================================================
+for geom_id in range(model.ngeom):
+    body_id = model.geom_bodyid[geom_id]
+    body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body_id)
+
+    # Ignoramos la caja de colisión genérica y los cuerpos sin nombre
+    if not body_name or body_name in {"box"}:
+        continue
+
+    # Filtramos para visualizar solo geometrías visuales
+    if (
+        model.geom_group[geom_id] > 2
+        or model.geom_type[geom_id] != mujoco.mjtGeom.mjGEOM_MESH
+    ):
+        continue
+
+    geom_name = (
+        mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, geom_id) or f"geom_{geom_id}"
+    )
+    entity_path = f"world/tf/{body_name}/{geom_name}"
+
+    # 1. Posición y rotación LOCAL de la geometría
+    local_pos = model.geom_pos[geom_id]
+    local_quat_wxyz = model.geom_quat[geom_id]
+    local_quat_xyzw = [
+        local_quat_wxyz[1],
+        local_quat_wxyz[2],
+        local_quat_wxyz[3],
+        local_quat_wxyz[0],
+    ]
+
+    rr.log(
+        entity_path,
+        rr.Transform3D(
+            translation=local_pos, rotation=rr.Quaternion(xyzw=local_quat_xyzw)
+        ),
+        static=True,
+    )
+
+    # 2. Extracción de vértices y caras
+    mesh_id = model.geom_dataid[geom_id]
+    if mesh_id == -1:
+        continue
+
+    vert_adr = model.mesh_vertadr[mesh_id]
+    vert_num = model.mesh_vertnum[mesh_id]
+    vertices = model.mesh_vert[vert_adr : vert_adr + vert_num]
+
+    face_adr = model.mesh_faceadr[mesh_id]
+    face_num = model.mesh_facenum[mesh_id]
+    faces = model.mesh_face[face_adr : face_adr + face_num]
+
+    # 3. EXTRAER EL COLOR CORRECTAMENTE (Material vs Geom)
+    mat_id = model.geom_matid[geom_id]
+    if mat_id != -1:
+        # Extrae el RGBA del material referenciado
+        rgba = model.mat_rgba[mat_id]
+    else:
+        # Extrae el RGBA directo de la geometría
+        rgba = model.geom_rgba[geom_id]
+
+    # Convertir a formato 0-255
+    color = np.array([rgba[0], rgba[1], rgba[2], rgba[3]]) * 255
+    color = color.astype(np.uint8)
+
+    # Multiplicar el color por el número de vértices para que Rerun pinte toda la malla
+    vertex_colors = np.tile(color, (vert_num, 1))
+
+    # 4. Registrar la malla en Rerun con sus colores
+    rr.log(
+        f"{entity_path}/mesh",
+        rr.Mesh3D(
+            vertex_positions=vertices,
+            triangle_indices=faces,
+            vertex_colors=vertex_colors,
+        ),
+        static=True,
+    )
+# =========================================================================
+# --- FIN DE CARGA ESTÁTICA ---
+# =========================================================================
+
 sim_start_time = time.time()
 
 # Launch the passive viewer
