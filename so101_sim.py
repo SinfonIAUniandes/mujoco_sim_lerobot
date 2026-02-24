@@ -12,6 +12,17 @@ try:
 except ImportError:
     RERUN_AVAILABLE = False
 
+# Only import pyroki if available
+try:
+    import pyroki as pk
+    from robot_descriptions.loaders.yourdfpy import load_robot_description as load_urdf_description
+    import pyroki_snippets as pks
+    import viser
+    from viser.extras import ViserUrdf
+    PYROKI_AVAILABLE = True
+except ImportError:
+    PYROKI_AVAILABLE = False
+
 
 class SO101Simulation:
     def __init__(
@@ -25,7 +36,12 @@ class SO101Simulation:
         rgb_callback=None,
         depth_callback=None,
         joint_callback=None,  # <--- Added joint_callback,
-        control_callback=None,  # <--- Added control_callback
+        control_callback=None,  # <--- Added control_callback,  
+        ik_callback=None,  # <--- NEW
+        urdf_name: str = "so_arm101_description", # <--- NEW
+        ik_target_link: str = "gripper", # <--- NEW
+        ik_joint_mapping: dict = None, # <--- NEW,
+        use_ik_web: bool = False, # <--- NEW: Enable Viser web interface
         # --- Rerun specific flags ---
         enable_rerun: bool = False,
         rerun_log_meshes: bool = True,
@@ -47,6 +63,26 @@ class SO101Simulation:
         self.depth_callback = depth_callback
         self.joint_callback = joint_callback  # <--- Store the callback
         self.control_callback = control_callback  # <--- Store the callback
+
+
+        self.ik_callback = ik_callback
+        self.use_ik_web = use_ik_web # <--- Store the flag
+        self.urdf_name = urdf_name
+        self.ik_target_link = ik_target_link
+        self.ik_joint_mapping = ik_joint_mapping or {
+            "1": "shoulder_pan", "2": "shoulder_lift", "3": "elbow_flex",
+            "4": "wrist_flex", "5": "wrist_roll", "6": "gripper"
+        }
+        
+        self._last_ik_pos = None
+        self._last_ik_quat = None
+        self.arm_base_id = 0
+
+        if self.ik_callback or self.use_ik_web:
+            if not PYROKI_AVAILABLE:
+                print("Warning: ik_callback provided but Pyroki is not installed.")
+            else:
+                self._init_ik()
 
         # Rerun Configuration
         self.enable_rerun = enable_rerun and RERUN_AVAILABLE
@@ -219,7 +255,33 @@ class SO101Simulation:
             cam_body_pos = self.data.xpos[self.cam_id]
             rr.log("world/visuals/base_to_camera", rr.Arrows3D(origins=[base_pos], vectors=[
                    cam_body_pos - base_pos], colors=[[255, 0, 0]], radii=0.005))
+            
+        # --- NEW: Log the IK Target to Rerun (Transformed to Global) ---
+        if self.rerun_log_tf and self._last_ik_pos is not None:
+            # Get the ground-truth global position and rotation matrix of the arm's base
+            base_pos = self.data.xpos[self.arm_base_id]
+            base_mat = self.data.xmat[self.arm_base_id].reshape(3, 3)
+            base_quat = self.data.xquat[self.arm_base_id]
 
+            # Convert local Viser IK target to MuJoCo global coordinates
+            global_ik_pos = base_pos + base_mat @ self._last_ik_pos
+            
+            global_ik_quat = np.zeros(4)
+            mujoco.mju_mulQuat(global_ik_quat, base_quat, self._last_ik_quat)
+
+            # Convert MuJoCo wxyz to Rerun xyzw
+            ik_quat_xyzw = [
+                global_ik_quat[1], global_ik_quat[2], 
+                global_ik_quat[3], global_ik_quat[0]
+            ]
+            
+            rr.log(
+                "world/tf/ik_target", 
+                rr.Transform3D(translation=global_ik_pos, rotation=rr.Quaternion(xyzw=ik_quat_xyzw)),
+                rr.TransformAxes3D(0.05) # Adds the visual X/Y/Z axis lines
+            )
+        # ---------------------------------------
+        
         # 2. Log RGB (Only if explicitly enabled for Rerun)
         if self.rerun_log_rgb and self.enable_rgb and rgb_image is not None:
             rr.log(f"world/{self.camera_name}/optical/rgb",
@@ -301,6 +363,80 @@ class SO101Simulation:
                 # print(f"Warning: Actuator '{name}' not found.")
                 pass
 
+    def _init_ik(self):
+        self.urdf = load_urdf_description(self.urdf_name)
+        self.robot = pk.Robot.from_urdf(self.urdf)
+        self.urdf_joints = [j.name for j in self.urdf.actuated_joints]
+        self.map_indices = []
+        
+        for u_idx, u_name in enumerate(self.urdf_joints):
+            if u_name in self.ik_joint_mapping:
+                m_name = self.ik_joint_mapping[u_name]
+                m_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, m_name)
+                if m_id != -1:
+                    self.map_indices.append((u_idx, m_id))
+
+        # Setup Viser Web Server if enabled
+        if self.use_ik_web:
+            self.viser_server = viser.ViserServer()
+            self.viser_server.scene.add_grid("/ground", width=2, height=2)
+            self.urdf_vis = ViserUrdf(self.viser_server, self.urdf, root_node_name="/ghost_robot")
+            self.ik_web_target = self.viser_server.scene.add_transform_controls(
+                "/ik_target", scale=0.1, position=(0.3, 0.0, 0.2), wxyz=(1, 0, 0, 0)
+            )
+        
+        # Dynamically find the true arm base ID for coordinate math
+        first_actuator = self.ik_joint_mapping.get("1")
+        if first_actuator:
+            act_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, first_actuator)
+            if act_id != -1:
+                # Get joint -> body -> parent body (the true base)
+                jnt_id = self.model.actuator_trnid[act_id, 0]
+                body_id = self.model.jnt_bodyid[jnt_id]
+                self.arm_base_id = self.model.body_parentid[body_id]
+
+    def _apply_ik(self, ik_command):
+        if not ik_command:
+            return
+
+        target_pos = ik_command.get("pos")
+        target_gripper = ik_command.get("gripper", 0.0)
+
+        if target_pos is None:
+            return
+
+        # Check if quaternion is explicitly provided (for Web view)
+        if "quat" in ik_command:
+            target_quat = ik_command["quat"]
+        else:
+            target_rpy = ik_command.get("rpy", [0.0, 0.0, 0.0])
+            target_quat = np.zeros(4)
+            mujoco.mju_euler2Quat(target_quat, target_rpy, "xyz")
+        
+        # Save target for Rerun visualizer
+        self._last_ik_pos = target_pos
+        self._last_ik_quat = target_quat
+
+        # Solve IK
+        q_sol = pks.solve_ik(
+            robot=self.robot,
+            target_link_name=self.ik_target_link,
+            target_position=target_pos,
+            target_wxyz=target_quat,
+        )
+
+        if q_sol is not None:
+            # Update web visualizer ghost if enabled
+            if self.use_ik_web:
+                self.urdf_vis.update_cfg(q_sol)
+                
+            for u_idx, m_idx in self.map_indices:
+                u_name = self.urdf_joints[u_idx]
+                if u_name == "6": 
+                    self.data.ctrl[m_idx] = target_gripper 
+                else:
+                    self.data.ctrl[m_idx] = q_sol[u_idx]
+
     def _process_cameras(self):
         rgb_image = None
         bgr_image = None
@@ -362,6 +498,22 @@ class SO101Simulation:
                         commands = self.control_callback(self.data.time)
                         if isinstance(commands, dict):
                             self._apply_commands(commands)
+                    # --- NEW: IK Coordinate Control ---
+                    if PYROKI_AVAILABLE:
+                        ik_command = None
+                        
+                        # Prioritize Web view if enabled
+                        if self.use_ik_web:
+                            ik_command = {
+                                "pos": np.array(self.ik_web_target.position),
+                                "quat": np.array(self.ik_web_target.wxyz),
+                                "gripper": 0.0 # Gripper logic handled separately or keep default
+                            }
+                        elif self.ik_callback:
+                            ik_command = self.ik_callback(self.data.time)
+                            
+                        if isinstance(ik_command, dict):
+                            self._apply_ik(ik_command)
                     # ---------------------------------------------------
                     mujoco.mj_step(self.model, self.data)
                     self._snap_camera()
