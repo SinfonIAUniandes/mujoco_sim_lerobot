@@ -260,14 +260,24 @@ class SO101Simulation:
         if self.rerun_log_tf and self._last_ik_pos is not None:
             # Get the ground-truth global position and rotation matrix of the arm's base
             base_pos = self.data.xpos[self.arm_base_id]
-            base_mat = self.data.xmat[self.arm_base_id].reshape(3, 3)
             base_quat = self.data.xquat[self.arm_base_id]
 
             # Convert local Viser IK target to MuJoCo global coordinates
-            global_ik_pos = base_pos + base_mat @ self._last_ik_pos
+            global_ik_pos = [-self._last_ik_pos[1], self._last_ik_pos[0], self._last_ik_pos[2]]
             
+            # --- NEW: Apply the +90 degree Z-rotation to the orientation ---
+            # MuJoCo format is [w, x, y, z]. 
+            # 90 deg around Z is [cos(45), 0, 0, sin(45)]
+            z_90_quat = np.array([0.70710678, 0.0, 0.0, 0.70710678])
+            
+            # First, rotate the Viser quaternion by our 90-degree offset
+            corrected_viser_quat = np.zeros(4)
+            mujoco.mju_mulQuat(corrected_viser_quat, z_90_quat, self._last_ik_quat)
+
+            # Then, multiply it with the base_quat as you were doing before
             global_ik_quat = np.zeros(4)
-            mujoco.mju_mulQuat(global_ik_quat, base_quat, self._last_ik_quat)
+            mujoco.mju_mulQuat(global_ik_quat, base_quat, corrected_viser_quat)
+            # ----------------------------------------------------------------
 
             # Convert MuJoCo wxyz to Rerun xyzw
             ik_quat_xyzw = [

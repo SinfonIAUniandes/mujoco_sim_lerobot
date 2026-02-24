@@ -76,10 +76,10 @@ if __name__ == "__main__":
         
         # Rerun toggles
         enable_rerun=True,    # Enable or disable for external visualization
-        rerun_log_meshes=False,  # Show the 3D robot model in Rerun
+        rerun_log_meshes=True,  # Show the 3D robot model in Rerun
         rerun_log_tf=True,      # Show the coordinate frames and skeletal arrows
-        rerun_depth_mode="none", # Choose: "none", "depth", or "pointcloud"
-        rerun_log_rgb=False,          # Disables the 2D RGB stream in Rerun
+        rerun_depth_mode="pointcloud", # Choose: "none", "depth", or "pointcloud"
+        rerun_log_rgb=True,          # Disables the 2D RGB stream in Rerun
         #rgb_callback=on_rgb_frame,
         #depth_callback=on_depth_frame,
         #joint_callback=my_joint_callback,
