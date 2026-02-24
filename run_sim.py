@@ -1,4 +1,5 @@
 from so101_sim import SO101Simulation
+import math
 
 # Example callback for RGB data
 def on_rgb_frame(bgr_image):
@@ -11,6 +12,26 @@ def on_depth_frame(raw_depth, colored_depth):
     # E.g., pass this to a point-cloud generator or obstacle avoidance logic
     # print(f"Received Depth Frame! Center distance: {raw_depth[240, 320]:.2f}m")
     pass
+
+def my_joint_callback(joint_data):
+    #print(f"Robot Joints: {joint_data}")
+    # E.g. print(f"Base angle: {joint_data['joint1']}")
+    pass
+
+# A simple callback that commands the robot based on the simulation time
+def my_control_logic(sim_time):
+    # Example: Make a joint sweep back and forth using a sine wave
+    target_angle = math.sin(sim_time) * 1.5 
+    # Return a dictionary of commands. Keys MUST match the actuator names in your XML!
+    return {
+        'shoulder_pan': target_angle,
+        'shoulder_lift': target_angle / 2,
+        'elbow_flex': target_angle / 3,
+        'wrist_flex': target_angle / 4,
+        'wrist_roll': target_angle / 5,
+        'gripper': 0.5 + 0.5 * math.sin(sim_time * 2)  # Open and close gripper over time
+    }
+
 
 
 if __name__ == "__main__":
@@ -34,7 +55,9 @@ if __name__ == "__main__":
         rerun_depth_mode="pointcloud", # Choose: "none", "depth", or "pointcloud"
         rerun_log_rgb=True,          # Disables the 2D RGB stream in Rerun
         rgb_callback=on_rgb_frame,
-        depth_callback=on_depth_frame
+        depth_callback=on_depth_frame,
+        joint_callback=my_joint_callback,
+        control_callback=my_control_logic
     )
     
     sim.run()
