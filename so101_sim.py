@@ -78,11 +78,10 @@ class SO101Simulation:
         self._last_ik_quat = None
         self.arm_base_id = 0
 
-        if self.ik_callback or self.use_ik_web:
-            if not PYROKI_AVAILABLE:
-                print("Warning: ik_callback provided but Pyroki is not installed.")
-            else:
-                self._init_ik()
+        if not PYROKI_AVAILABLE:
+            print("Warning: ik_callback provided but Pyroki is not installed.")
+        else:
+            self._init_ik()
 
         # Rerun Configuration
         self.enable_rerun = enable_rerun and RERUN_AVAILABLE
@@ -356,7 +355,7 @@ class SO101Simulation:
 
         self.joint_callback(joint_data)
 
-    def _apply_commands(self, commands):
+    def apply_commands(self, commands):
         if not commands:
             return
 
@@ -405,7 +404,7 @@ class SO101Simulation:
                 body_id = self.model.jnt_bodyid[jnt_id]
                 self.arm_base_id = self.model.body_parentid[body_id]
 
-    def _apply_ik(self, ik_command):
+    def apply_ik(self, ik_command):
         if not ik_command:
             return
 
@@ -507,7 +506,7 @@ class SO101Simulation:
                     if self.control_callback:
                         commands = self.control_callback(self.data.time)
                         if isinstance(commands, dict):
-                            self._apply_commands(commands)
+                            self.apply_commands(commands)
                     # --- NEW: IK Coordinate Control ---
                     if PYROKI_AVAILABLE:
                         ik_command = None
@@ -523,7 +522,7 @@ class SO101Simulation:
                             ik_command = self.ik_callback(self.data.time)
                             
                         if isinstance(ik_command, dict):
-                            self._apply_ik(ik_command)
+                            self.apply_ik(ik_command)
                     # ---------------------------------------------------
                     mujoco.mj_step(self.model, self.data)
                     self._snap_camera()

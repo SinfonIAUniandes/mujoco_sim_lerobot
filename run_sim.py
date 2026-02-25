@@ -46,6 +46,7 @@ def my_ik_logic(sim_time):
     # 2. Target Orientation: [Roll, Pitch, Yaw] in radians
     # We will keep it mostly level, with a slight pitch variation for effect
     target_rpy = np.array([0.0, 0, 0])
+    #target_rpy = np.array([0.0, math.sin(sim_time), 0])  # Add some pitch oscillation
     
     # 3. Gripper State (0.0 closed, 1.75 open) - let's make it open and close rhythmically
     gripper_state = 0#0.5 + 0.5 * math.sin(sim_time * 2)
