@@ -106,19 +106,19 @@ def robot_control_sequence(grabber, sim):
 
     # Note: We now use ik_target for all positioning commands
     print("-> Hovering")
-    sim.apply_ik({"pos": ik_target + np.array([0.0, -0.1, 0.4]), "rpy": target_rpy, "gripper": grabber.gripper_open})
+    sim.apply_ik({"pos": ik_target + np.array([0.0, 0, 0.4]), "rpy": target_rpy, "gripper": grabber.gripper_open})
     time.sleep(3.0) 
 
     print("-> Descending")
-    sim.apply_ik({"pos": ik_target + np.array([0.0, -0.1, 0.15]), "rpy": target_rpy, "gripper": grabber.gripper_open})
+    sim.apply_ik({"pos": ik_target + np.array([0.0, 0, 0.12]), "rpy": target_rpy, "gripper": grabber.gripper_open})
     time.sleep(2.0)
 
     print("-> Grabbing")
-    sim.apply_ik({"pos": ik_target + np.array([0.0, -0.1, 0.15]), "rpy": target_rpy, "gripper": grabber.gripper_closed})
+    sim.apply_ik({"pos": ik_target + np.array([0.0, 0, 0.12]), "rpy": target_rpy, "gripper": grabber.gripper_closed})
     time.sleep(1.0)
 
     print("-> Lifting")
-    sim.apply_ik({"pos": ik_target + np.array([0.0, -0.1, 0.4]), "rpy": target_rpy, "gripper": grabber.gripper_closed})
+    sim.apply_ik({"pos": ik_target + np.array([0.0, 0, 0.4]), "rpy": target_rpy, "gripper": grabber.gripper_closed})
     
     print("Sequence Complete!")
 
@@ -150,6 +150,11 @@ if __name__ == "__main__":
     control_thread = Thread(target=robot_control_sequence, args=(grabber, sim))
     control_thread.daemon = True 
     control_thread.start()
+
+    # Para cambiar las coordenadas de la caja, edita el archivo so101_camera_mount.xml y modifica la línea del cuerpo de la caja:
+    #    <body name="box" pos="0.2 -0.2 0.03">
+    #    <body name="box" pos="0.2 0.2 0.03">
+    #    <body name="box" pos="0.31 0.05 0.03">
 
     # 2. Run the SIMULATION (and rendering) in the main thread
     sim.run()
