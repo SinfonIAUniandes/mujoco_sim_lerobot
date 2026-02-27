@@ -208,3 +208,5 @@ __marimo__/
 
 *.TXT
 *.sh
+
+.python-version

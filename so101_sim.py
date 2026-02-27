@@ -235,8 +235,15 @@ class SO101Simulation:
                          quat_wxyz[3], quat_wxyz[0]]
 
             if self.rerun_log_tf:
-                rr.log(f"world/tf/{body_name}", rr.Transform3D(translation=pos,
-                       rotation=rr.Quaternion(xyzw=quat_xyzw)), rr.TransformAxes3D(0.05))
+                # By adding axis_length, Rerun will render the RGB gizmo automatically
+                rr.log(
+                    f"world/tf/{body_name}", 
+                    rr.Transform3D(
+                        translation=pos, 
+                        rotation=rr.Quaternion(xyzw=quat_xyzw),
+                        axis_length=0.05  # <--- Add this line to show the gizmo
+                    )
+                )
                 parent_id = self.model.body_parentid[i]
                 if parent_id != 0:
                     parent_name = mujoco.mj_id2name(
@@ -286,8 +293,11 @@ class SO101Simulation:
             
             rr.log(
                 "world/tf/ik_target", 
-                rr.Transform3D(translation=global_ik_pos, rotation=rr.Quaternion(xyzw=ik_quat_xyzw)),
-                rr.TransformAxes3D(0.05) # Adds the visual X/Y/Z axis lines
+                rr.Transform3D(
+                    translation=global_ik_pos, 
+                    rotation=rr.Quaternion(xyzw=ik_quat_xyzw),
+                    axis_length=0.1  # Make the target gizmo slightly larger/visible
+                )
             )
         # ---------------------------------------
         

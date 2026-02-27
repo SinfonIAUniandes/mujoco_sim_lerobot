@@ -5,3 +5,7 @@ numpy
 open3d
 opencv-python
 rerun-sdk
+"lerobot[smolvla]"
+uninstall opencv-python
+uninstall opencv-python-headless
+opencv-python
