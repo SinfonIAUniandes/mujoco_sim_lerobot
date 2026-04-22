@@ -64,10 +64,18 @@ if __name__ == "__main__":
     
     sim = SO101Simulation(
         xml_path=PACKAGE_PATH + MJCF_FILE,
-        urdf_name="so_arm101_description",    # <--- Your URDF package name
-        ik_target_link="gripper",             # <--- The link you want to control
-        use_ik_web=True,                      # <--- Add this line
+        urdf_name="so_arm101_description",
         
+        # Starting pose (raw MuJoCo radians)
+        starting_angles={
+            "shoulder_pan":   0.055,
+            "shoulder_lift": -1.676,
+            "elbow_flex":     1.571,
+            "wrist_flex":     1.153,
+            "wrist_roll":     1.619,
+            "gripper":        0.0,
+        },
+
         # Stream toggles
         enable_rgb=True,
         enable_depth=True,

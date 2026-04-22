@@ -42,6 +42,7 @@ class SO101Simulation:
         ik_target_link: str = "gripper", # <--- NEW
         ik_joint_mapping: dict = None, # <--- NEW,
         use_ik_web: bool = False, # <--- NEW: Enable Viser web interface
+        starting_angles: dict = None, # e.g. {"shoulder_pan": 0.0, "shoulder_lift": -1.67, ...}
         # --- Rerun specific flags ---
         enable_rerun: bool = False,
         rerun_log_meshes: bool = True,
@@ -66,7 +67,8 @@ class SO101Simulation:
 
 
         self.ik_callback = ik_callback
-        self.use_ik_web = use_ik_web # <--- Store the flag
+        self.use_ik_web = use_ik_web
+        self.starting_angles = starting_angles or {}
         self.urdf_name = urdf_name
         self.ik_target_link = ik_target_link
         self.ik_joint_mapping = ik_joint_mapping or {
@@ -508,6 +510,19 @@ class SO101Simulation:
         last_render_time = time.time()
 
         with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
+            # Apply starting angles here — after launch_passive, which resets
+            # data.ctrl to zero. Set both qpos (spawn pose) and ctrl (hold target).
+            if self.starting_angles:
+                for i in range(self.model.njnt):
+                    jnt_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, i)
+                    if jnt_name and jnt_name in self.starting_angles:
+                        angle = self.starting_angles[jnt_name]
+                        self.data.qpos[self.model.jnt_qposadr[i]] = angle
+                        act_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, jnt_name)
+                        if act_id != -1:
+                            self.data.ctrl[act_id] = angle
+                mujoco.mj_forward(self.model, self.data)
+
             while viewer.is_running():
                 real_elapsed_time = time.time() - sim_start_time
 
