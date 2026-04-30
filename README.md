@@ -1,6 +1,17 @@
 # Simulación de brazos LeRobot con MuJoCo y PyRoki
 ![arm_gif](https://github.com/user-attachments/assets/aaa8351c-93e6-4dfd-b276-cd3e3cd380da)
 
+
+<img width="705" height="702" alt="image" src="https://github.com/user-attachments/assets/11dc2414-a661-49db-b98d-7365331451df" />
+
+<br/>
+<img width="1237" height="702" alt="image" src="https://github.com/user-attachments/assets/b62c632a-c73f-4922-b2de-c0a343371965" />
+
+<br/>
+<img width="1241" height="702" alt="image" src="https://github.com/user-attachments/assets/3aab2468-0e62-402f-93d6-707f4b0a59ca" />
+
+
+
 Este repositorio contiene scripts y utilidades para simular y controlar el brazo SO-ARM101 usando MuJoCo (simulación física) y PyRoki (IK/planning).
 
 Resumen rápido de lo que hay
